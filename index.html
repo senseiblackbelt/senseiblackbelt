@@ -893,10 +893,6 @@ function buildBelts() {
   });
 }
 
-// ══ BUILD VIDEOS ══════════════════════════════════════
-)/);
-  return m ? m[1] : null;
-}
 
 
 
@@ -1113,33 +1109,7 @@ function runSimDemo() {
 }
 
 // ══ FORMULAIRE D'INSCRIPTION ═════════════════════════
-function submitForm(){
-  const prenom = document.getElementById('f-prenom').value.trim();
-  const nom    = document.getElementById('f-nom').value.trim();
-  const email  = document.getElementById('f-email').value.trim();
-  if(!prenom||!nom||!email){
-    alert('Merci de remplir au minimum : Prénom, Nom et Email.');
-    return;
-  }
-  // Construire le lien mailto vers Sensei
-  const niveau  = document.getElementById('f-niveau').value;
-  const formule = document.getElementById('f-formule').value;
-  const insta   = document.getElementById('f-insta').value;
-  const msg     = document.getElementById('f-message').value;
-  const subject = encodeURIComponent('Inscription SENSEI — ' + prenom + ' ' + nom);
-  const body    = encodeURIComponent(
-    'Prénom : ' + prenom + '\n' +
-    'Nom : ' + nom + '\n' +
-    'Email : ' + email + '\n' +
-    'Instagram : ' + (insta||'Non renseigné') + '\n' +
-    'Niveau : ' + (niveau||'Non renseigné') + '\n' +
-    'Formule : ' + (formule||'Non renseignée') + '\n' +
-    'Message : ' + (msg||'—')
-  );
-  window.open('mailto:thibault.njeckil@orange.com?subject=' + subject + '&body=' + body);
-  document.getElementById('form-content').style.display='none';
-  document.getElementById('form-success').style.display='block';
-}
+
 
 
 // ══ CALENDRIER ══════════════════════════════════════
