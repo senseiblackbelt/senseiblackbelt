@@ -1468,7 +1468,7 @@ function checkPin(){
   if(entered===SENSEI_CODE){
     document.body.classList.add('unlocked');
     closeSenseiModal();
-    localStorage.setItem('sensei_unlocked','1');
+    try{localStorage.setItem('sensei_unlocked','1');}catch(e){}
   } else {
     document.getElementById('pin-err').textContent='Code incorrect';
     setTimeout(()=>{
@@ -1479,7 +1479,7 @@ function checkPin(){
   }
 }
 // Mémoriser le déverrouillage
-if(localStorage.getItem('sensei_unlocked')==='1') document.body.classList.add('unlocked');
+try{if(localStorage.getItem('sensei_unlocked')==='1') document.body.classList.add('unlocked');}catch(e){}
 
 window.addEventListener('load', () => {
   buildBelts();
