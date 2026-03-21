@@ -834,17 +834,43 @@ function buildVideoSection(sectionKey) {
   // Vide le contenu statique (Coming Soon) avant de générer
   grid.innerHTML = '';
 
-  // Grille : si section 100% paysage → 3 colonnes larges, sinon colonnes étroites (portrait)
-  const allHorizontal = items.every(v => !v.vertical);
-  grid.style.cssText = 'display:grid;gap:16px;margin-top:24px;grid-template-columns:' +
-    (allHorizontal ? 'repeat(auto-fill,minmax(300px,1fr))' : 'repeat(auto-fill,minmax(160px,1fr))');
+  const verticals   = items.filter(v =>  v.vertical);
+  const horizontals = items.filter(v => !v.vertical);
+  const isMixed     = verticals.length > 0 && horizontals.length > 0;
 
-  items.forEach(v => {
-    // Ratio du conteneur selon le format réel de la vidéo
-    const ratio = v.vertical ? '177.77%' : '56.25%';
-    // hqdefault (480x360) pour toutes : meilleure résolution en cover, surtout pour paysage dans grille portrait
-    const thumbUrl = `https://img.youtube.com/vi/${v.id}/hqdefault.jpg`;
-    const card       = document.createElement('div');
+  // Sections mixtes : deux sous-grilles séparées
+  if (isMixed) {
+    // Sous-grille portrait
+    if (verticals.length > 0) {
+      
+      const subGridV = document.createElement('div');
+      subGridV.style.cssText = 'display:grid;gap:16px;grid-template-columns:repeat(auto-fill,minmax(160px,1fr))';
+      verticals.forEach(v => subGridV.appendChild(makeCard(v)));
+      grid.appendChild(subGridV);
+    }
+    // Sous-grille paysage
+    if (horizontals.length > 0) {
+      const sep = document.createElement('div');
+      sep.style.cssText = 'width:60px;height:2px;background:var(--gold);margin:24px 0 16px';
+      grid.appendChild(sep);
+      const subGridH = document.createElement('div');
+      subGridH.style.cssText = 'display:grid;gap:16px;grid-template-columns:repeat(auto-fill,minmax(300px,1fr))';
+      horizontals.forEach(v => subGridH.appendChild(makeCard(v)));
+      grid.appendChild(subGridH);
+    }
+    return;
+  }
+
+  // Section homogène : une seule grille
+  grid.style.cssText = 'display:grid;gap:16px;margin-top:24px;grid-template-columns:' +
+    (verticals.length > 0 ? 'repeat(auto-fill,minmax(160px,1fr))' : 'repeat(auto-fill,minmax(300px,1fr))');
+  items.forEach(v => grid.appendChild(makeCard(v)));
+}
+
+function makeCard(v) {
+  const ratio    = v.vertical ? '177.77%' : '56.25%';
+  const thumbUrl = `https://img.youtube.com/vi/${v.id}/hqdefault.jpg`;
+  const card = document.createElement('div');
     card.style.cssText = 'background:var(--dark2);border-radius:12px;overflow:hidden;border:1px solid var(--border);cursor:pointer;transition:all .2s';
     card.onmouseenter = () => card.style.borderColor = 'rgba(245,197,24,.4)';
     card.onmouseleave = () => card.style.borderColor = 'var(--border)';
@@ -862,8 +888,7 @@ function buildVideoSection(sectionKey) {
         </div>
       </div>
       <div style="padding:10px 12px;font-family:var(--font-cond);font-size:11px;font-weight:700;letter-spacing:1px;color:var(--muted);text-transform:uppercase">${v.title}</div>`;
-    grid.appendChild(card);
-  });
+    return card;
 }
 
 // Shooting / Defense / Rebounding : gérés via SECTION_VIDEOS aussi (grilles dynamiques)
