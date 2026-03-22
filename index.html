@@ -789,17 +789,8 @@ window.onYouTubeIframeAPIReady = function() {
 function stopActive() {
   if (ytActivePlayer) {
     try { ytActivePlayer.stopVideo(); } catch(e) {}
-    // On garde ytActivePlayer en vie — pas de destroy
   }
   if (ytActiveCard && ytActiveV && ytActiveRatio) {
-    // Récupérer l'iframe et la remettre dans un div caché hors DOM visible
-    try {
-      const iframe = ytActivePlayer.getIframe();
-      if (iframe) {
-        iframe.style.cssText = 'position:absolute;width:1px;height:1px;opacity:0;pointer-events:none';
-        document.body.appendChild(iframe);
-      }
-    } catch(e) {}
     ytActiveCard.innerHTML = makeThumb(ytActiveV, ytActiveRatio);
     ytActiveCard.onclick = (function(card, v) {
       return function() {
@@ -808,8 +799,8 @@ function stopActive() {
       };
     })(ytActiveCard, ytActiveV);
   }
-  ytActiveCard  = null;
-  ytActiveV     = null;
+  ytActiveCard = null;
+  ytActiveV = null;
   ytActiveRatio = null;
 }
 
@@ -955,27 +946,18 @@ function launchPlayer(card, v) {
     })(ytActiveCard, ytActiveV);
   }
 
-  if (ytActivePlayer) {
-    // Player existant — injecter le slot, déplacer l'iframe dedans, changer la vidéo
-    card.innerHTML = `
-      <div id="${uid}" style="position:relative;padding-bottom:${ratio};height:0;background:#000;border-radius:12px;overflow:hidden"></div>
-      <div style="padding:10px 12px;font-family:var(--font-cond);font-size:11px;font-weight:700;letter-spacing:1px;color:var(--muted);text-transform:uppercase">${v.title}</div>`;
+  // Injecter le DOM
+  card.innerHTML = `
+    <div style="position:relative;padding-bottom:${ratio};height:0;background:#000;border-radius:12px;overflow:hidden">
+      <div id="${uid}" style="position:absolute;top:0;left:0;width:100%;height:100%"></div>
+    </div>
+    <div style="padding:10px 12px;font-family:var(--font-cond);font-size:11px;font-weight:700;letter-spacing:1px;color:var(--muted);text-transform:uppercase">${v.title}</div>`;
 
-    const slot   = document.getElementById(uid);
-    const iframe = ytActivePlayer.getIframe();
-    iframe.style.cssText = 'position:absolute;top:0;left:0;width:100%;height:100%;border:none';
-    slot.appendChild(iframe);
-    ytActivePlayer.cueVideoById(v.id);
-    ytActivePlayer.playVideo();
-
+  // Créer le player — dans le tap handler synchrone, iOS l'accepte
+  if (ytActivePlayer && ytActiveCard === card) {
+    ytActivePlayer.loadVideoById(v.id);
   } else {
-    // Premier tap — créer le player
-    card.innerHTML = `
-      <div style="position:relative;padding-bottom:${ratio};height:0;background:#000;border-radius:12px;overflow:hidden">
-        <div id="${uid}" style="position:absolute;top:0;left:0;width:100%;height:100%"></div>
-      </div>
-      <div style="padding:10px 12px;font-family:var(--font-cond);font-size:11px;font-weight:700;letter-spacing:1px;color:var(--muted);text-transform:uppercase">${v.title}</div>`;
-
+    if (ytActivePlayer) { try { ytActivePlayer.stopVideo(); } catch(e) {} }
     ytActivePlayer = new YT.Player(uid, {
       videoId: v.id,
       playerVars: { autoplay: 1, playsinline: 1, rel: 0, modestbranding: 1 },
