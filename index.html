@@ -11,6 +11,7 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="apple-mobile-web-app-title" content="SENSEI">
   <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Barlow:wght@300;400;500;600;700;900&family=Barlow+Condensed:wght@400;600;700;900&display=swap" rel="stylesheet">
+  <script src="https://www.youtube.com/iframe_api"></script>
 <style>
 :root{
   --black:#080a0f;
@@ -774,22 +775,19 @@ const SECTION_VIDEOS = {
 // ══ DÉTECTION MOBILE ══
 function isMobile() { return window.innerWidth <= 768; }
 
-// ══ GESTION VIDÉO ACTIVE ══
-let activeCard = null;
+// ══ API YOUTUBE IFRAME PLAYER ══
+let ytApiReady = false;
+let ytActivePlayer = null;
+
+window.onYouTubeIframeAPIReady = function() {
+  ytApiReady = true;
+};
 
 function stopActive() {
-  if (!activeCard) return;
-  const v = activeCard._v;
-  const ratio = activeCard._ratio;
-  activeCard.innerHTML = makeThumb(v, ratio);
-  // Réattacher les listeners
-  function handler(e) {
-    e.preventDefault();
-    playCard(activeCard, v);
+  if (ytActivePlayer) {
+    try { ytActivePlayer.destroy(); } catch(e) {}
+    ytActivePlayer = null;
   }
-  activeCard.addEventListener('touchend', handler, {passive: false});
-  activeCard.addEventListener('click', (e) => { if (!isMobile()) openVideoModal(v.id, v.title, v.vertical); });
-  activeCard = null;
 }
 
 function makeThumb(v, ratio) {
@@ -808,42 +806,40 @@ function makeThumb(v, ratio) {
     <div style="padding:10px 12px;font-family:var(--font-cond);font-size:11px;font-weight:700;letter-spacing:1px;color:var(--muted);text-transform:uppercase">${v.title}</div>`;
 }
 
-function playCard(card, v) {
-  stopActive();
-  const ratio = v.vertical ? '177.77%' : '56.25%';
-
-  const wrap = document.createElement('div');
-  wrap.style.cssText = `position:relative;padding-bottom:${ratio};height:0;background:#000;border-radius:12px;overflow:hidden`;
-
-  const iframe = document.createElement('iframe');
-  iframe.src = 'https://www.youtube.com/embed/' + v.id + '?autoplay=1&playsinline=1&rel=0&modestbranding=1&origin=https://senseiblackbelt.com';
-  iframe.style.cssText = 'position:absolute;top:0;left:0;width:100%;height:100%;border:none';
-  iframe.setAttribute('allow', 'autoplay;fullscreen;accelerometer;clipboard-write;encrypted-media;gyroscope;picture-in-picture');
-  iframe.setAttribute('allowfullscreen', '');
-  iframe.setAttribute('playsinline', '');
-  iframe.setAttribute('webkit-playsinline', '');
-  wrap.appendChild(iframe);
-
-  const titleDiv = document.createElement('div');
-  titleDiv.style.cssText = 'padding:10px 12px;font-family:var(--font-cond);font-size:11px;font-weight:700;letter-spacing:1px;color:var(--muted);text-transform:uppercase';
-  titleDiv.textContent = v.title;
-
-  card.innerHTML = '';
-  card.appendChild(wrap);
-  card.appendChild(titleDiv);
-
-  card._v = v;
-  card._ratio = ratio;
-  activeCard = card;
-
-  // touchend pour stopper sur iOS
-  function stopHandler(e) {
-    e.preventDefault();
-    stopActive();
-  }
-  card.addEventListener('touchend', stopHandler, {passive: false});
-  card.addEventListener('click', (e) => { if (!isMobile()) stopActive(); });
+// ══ URL EMBED YOUTUBE — desktop ══
+function embedSrc(id) {
+  return 'https://www.youtube.com/embed/' + id + '?autoplay=1&playsinline=1&rel=0&modestbranding=1&origin=https://senseiblackbelt.com';
 }
+
+// ══ VIDEO MODAL — desktop uniquement ══
+function openVideoModal(id, title, vertical) {
+  const modal   = document.getElementById('video-modal');
+  const wrapper = document.getElementById('video-modal-wrapper');
+  const iframe  = document.getElementById('video-modal-iframe');
+  const inner   = document.getElementById('video-modal-inner');
+  document.getElementById('video-modal-title').textContent = title;
+  if (vertical) {
+    const maxH = Math.min(window.innerHeight * 0.85, 720);
+    inner.style.maxWidth = Math.round(maxH * 9/16) + 'px';
+    wrapper.style.height = maxH + 'px';
+    wrapper.style.aspectRatio = '';
+  } else {
+    inner.style.maxWidth = '900px';
+    wrapper.style.height = '';
+    wrapper.style.aspectRatio = '16/9';
+  }
+  iframe.src = embedSrc(id);
+  modal.style.display = 'flex';
+  document.body.style.overflow = 'hidden';
+}
+
+function closeVideoModal() {
+  document.getElementById('video-modal').style.display = 'none';
+  document.getElementById('video-modal-iframe').src = '';
+  document.body.style.overflow = '';
+}
+
+document.addEventListener('keydown', e => { if (e.key === 'Escape') closeVideoModal(); });
 
 // ══ URL EMBED YOUTUBE — desktop ══
 function embedSrc(id) {
@@ -923,27 +919,41 @@ function buildVideoSection(sectionKey) {
 
 function makeCard(v) {
   const ratio = v.vertical ? '177.77%' : '56.25%';
-  const card  = document.createElement('div');
+  const uid   = 'yt-' + Math.random().toString(36).slice(2,9);
+
+  const card = document.createElement('div');
   card.style.cssText = 'background:var(--dark2);border-radius:12px;overflow:hidden;border:1px solid var(--border);cursor:pointer;transition:all .2s';
   card.onmouseenter = () => { if (!isMobile()) card.style.borderColor = 'rgba(245,197,24,.4)'; };
   card.onmouseleave = () => { if (!isMobile()) card.style.borderColor = 'var(--border)'; };
-  card._v     = v;
-  card._ratio = ratio;
   card.innerHTML = makeThumb(v, ratio);
 
-  function handler(e) {
-    e.preventDefault();
-    if (isMobile()) {
-      playCard(card, v);
-    } else {
-      openVideoModal(v.id, v.title, v.vertical);
-    }
+  function showThumb() {
+    stopActive();
+    card.innerHTML = makeThumb(v, ratio);
+    card.onclick = play;
   }
 
-  // touchend pour iOS, click pour desktop
-  card.addEventListener('touchend', handler, {passive: false});
-  card.addEventListener('click', (e) => { if (!isMobile()) openVideoModal(v.id, v.title, v.vertical); });
+  function play() {
+    if (!isMobile()) { openVideoModal(v.id, v.title, v.vertical); return; }
 
+    stopActive();
+
+    card.innerHTML = `
+      <div style="position:relative;padding-bottom:${ratio};height:0;background:#000;border-radius:12px;overflow:hidden">
+        <div id="${uid}" style="position:absolute;top:0;left:0;width:100%;height:100%"></div>
+      </div>
+      <div style="padding:10px 12px;font-family:var(--font-cond);font-size:11px;font-weight:700;letter-spacing:1px;color:var(--muted);text-transform:uppercase">${v.title}</div>`;
+
+    ytActivePlayer = new YT.Player(uid, {
+      videoId: v.id,
+      playerVars: { autoplay: 1, playsinline: 1, rel: 0, modestbranding: 1 },
+      events: { onReady: e => e.target.playVideo() }
+    });
+
+    card.onclick = showThumb;
+  }
+
+  card.onclick = play;
   return card;
 }
 
