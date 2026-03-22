@@ -11,6 +11,7 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="apple-mobile-web-app-title" content="SENSEI">
   <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Barlow:wght@300;400;500;600;700;900&family=Barlow+Condensed:wght@400;600;700;900&display=swap" rel="stylesheet">
+  <script src="https://www.youtube.com/iframe_api"></script>
 <style>
 :root{
   --black:#080a0f;
@@ -774,7 +775,46 @@ const SECTION_VIDEOS = {
 // ══ DÉTECTION MOBILE ══
 function isMobile() { return window.innerWidth <= 768; }
 
-// ══ URL EMBED YOUTUBE ══
+// ══ API YOUTUBE IFRAME PLAYER ══
+let ytApiReady = false;
+let ytPendingPlay = null;
+
+window.onYouTubeIframeAPIReady = function() {
+  ytApiReady = true;
+  if (ytPendingPlay) { ytPendingPlay(); ytPendingPlay = null; }
+};
+
+function playYT(containerId, videoId, vertical) {
+  const ratio = vertical ? '177.77%' : '56.25%';
+  const container = document.getElementById(containerId);
+  if (!container) return;
+
+  // Créer le div cible pour le player
+  container.innerHTML = `<div style="position:relative;padding-bottom:${ratio};height:0;background:#000;overflow:hidden;border-radius:12px"><div id="yt-${containerId}" style="position:absolute;top:0;left:0;width:100%;height:100%"></div></div>`;
+
+  function doPlay() {
+    new YT.Player('yt-' + containerId, {
+      videoId: videoId,
+      playerVars: {
+        autoplay: 1,
+        playsinline: 1,
+        rel: 0,
+        modestbranding: 1,
+      },
+      events: {
+        onReady: e => e.target.playVideo(),
+      }
+    });
+  }
+
+  if (ytApiReady) {
+    doPlay();
+  } else {
+    ytPendingPlay = doPlay;
+  }
+}
+
+// ══ URL EMBED YOUTUBE — desktop uniquement ══
 function embedSrc(id) {
   return 'https://www.youtube.com/embed/' + id
     + '?autoplay=1'
@@ -865,6 +905,7 @@ function makeCard(v) {
   const ratio         = v.vertical ? '177.77%' : '56.25%';
   const thumbUrl      = `https://img.youtube.com/vi/${v.id}/hqdefault.jpg`;
   const thumbFallback = `https://img.youtube.com/vi/${v.id}/mqdefault.jpg`;
+  const uid           = 'yt-' + v.id + '-' + Math.random().toString(36).slice(2,6);
 
   const card = document.createElement('div');
   card.style.cssText = 'background:var(--dark2);border-radius:12px;overflow:hidden;border:1px solid var(--border);cursor:pointer;transition:all .2s';
@@ -874,7 +915,7 @@ function makeCard(v) {
   const thumbHTML = `
     <div class="card-thumb" style="position:relative;padding-bottom:${ratio};height:0;background:#000;overflow:hidden">
       <img src="${thumbUrl}"
-           style="position:absolute;top:0;left:0;width:100%;height:100%;object-fit:cover;pointer-events:none;transition:transform .3s"
+           style="position:absolute;top:0;left:0;width:100%;height:100%;object-fit:cover;pointer-events:none"
            loading="lazy" alt="${v.title}"
            onerror="this.onerror=null;this.src='${thumbFallback}'">
       <div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;pointer-events:none;background:rgba(0,0,0,.2)">
@@ -885,41 +926,30 @@ function makeCard(v) {
     </div>
     <div style="padding:10px 12px;font-family:var(--font-cond);font-size:11px;font-weight:700;letter-spacing:1px;color:var(--muted);text-transform:uppercase">${v.title}</div>`;
 
-  // Créer l'iframe à l'avance mais sans src (évite le chargement inutile)
-  const iframeWrap = document.createElement('div');
-  iframeWrap.style.cssText = `display:none;position:relative;padding-bottom:${ratio};height:0;background:#000;overflow:hidden;border-radius:12px`;
-  const iframe = document.createElement('iframe');
-  iframe.style.cssText = 'position:absolute;top:0;left:0;width:100%;height:100%;border:none';
-  iframe.setAttribute('allow', 'autoplay;fullscreen;accelerometer;clipboard-write;encrypted-media;gyroscope;picture-in-picture');
-  iframe.setAttribute('allowfullscreen', '');
-  iframe.setAttribute('playsinline', '');
-  iframe.setAttribute('webkit-playsinline', '');
-  iframeWrap.appendChild(iframe);
-
-  const titleDiv = document.createElement('div');
-  titleDiv.style.cssText = 'padding:10px 12px;font-family:var(--font-cond);font-size:11px;font-weight:700;letter-spacing:1px;color:var(--muted);text-transform:uppercase';
-  titleDiv.textContent = v.title;
-
   card.innerHTML = thumbHTML;
-  card.appendChild(iframeWrap);
-  card.appendChild(titleDiv);
-
-  // Retirer le titleDiv dupliqué du thumbHTML
-  const thumbTitleDiv = card.querySelectorAll('div[style*="font-family:var(--font-cond)"]');
-  if (thumbTitleDiv.length > 1) thumbTitleDiv[thumbTitleDiv.length - 1].remove();
 
   function playInCard() {
-    // Montrer l'iframe, cacher la thumbnail
-    iframe.src = embedSrc(v.id);
-    iframeWrap.style.display = 'block';
-    card.querySelector('.card-thumb').style.display = 'none';
+    // Hauteur du player selon le ratio
+    const w = card.offsetWidth;
+    const h = v.vertical ? Math.round(w * 16/9) : Math.round(w * 9/16);
+    card.innerHTML = `
+      <div id="${uid}" style="width:100%;height:${h}px;background:#000;border-radius:12px;overflow:hidden"></div>
+      <div style="padding:10px 12px;font-family:var(--font-cond);font-size:11px;font-weight:700;letter-spacing:1px;color:var(--muted);text-transform:uppercase">${v.title}</div>`;
+
+    // API YouTube IFrame — seul moyen fiable d'autoplay avec son sur iOS
+    new YT.Player(uid, {
+      videoId: v.id,
+      width: w,
+      height: h,
+      playerVars: { autoplay: 1, playsinline: 1, rel: 0, modestbranding: 1 },
+      events: { onReady: e => e.target.playVideo() }
+    });
+
     card.onclick = resetCard;
   }
 
   function resetCard() {
-    iframe.src = '';
-    iframeWrap.style.display = 'none';
-    card.querySelector('.card-thumb').style.display = 'block';
+    card.innerHTML = thumbHTML;
     card.onclick = mainClick;
   }
 
@@ -932,7 +962,6 @@ function makeCard(v) {
   }
 
   card.onclick = mainClick;
-
   return card;
 }
 
