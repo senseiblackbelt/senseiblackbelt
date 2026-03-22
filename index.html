@@ -778,11 +778,19 @@ function isMobile() { return window.innerWidth <= 768; }
 // ══ API YOUTUBE IFRAME PLAYER ══
 let ytApiReady = false;
 let ytPendingPlay = null;
+let ytActivePlayer = null; // Référence au player actif
 
 window.onYouTubeIframeAPIReady = function() {
   ytApiReady = true;
   if (ytPendingPlay) { ytPendingPlay(); ytPendingPlay = null; }
 };
+
+function stopActivePlayer() {
+  if (ytActivePlayer) {
+    try { ytActivePlayer.stopVideo(); } catch(e) {}
+    ytActivePlayer = null;
+  }
+}
 
 function playYT(containerId, videoId, vertical) {
   const ratio = vertical ? '177.77%' : '56.25%';
@@ -936,7 +944,8 @@ function makeCard(v) {
       <div style="padding:10px 12px;font-family:var(--font-cond);font-size:11px;font-weight:700;letter-spacing:1px;color:var(--muted);text-transform:uppercase">${v.title}</div>`;
 
     function doPlay() {
-      new YT.Player(uid, {
+      stopActivePlayer(); // Arrêter toute vidéo en cours
+      ytActivePlayer = new YT.Player(uid, {
         videoId: v.id,
         playerVars: { autoplay: 1, playsinline: 1, rel: 0, modestbranding: 1 },
         events: { onReady: e => e.target.playVideo() }
@@ -953,6 +962,7 @@ function makeCard(v) {
   }
 
   function resetCard() {
+    stopActivePlayer();
     card.innerHTML = thumbHTML;
     card.onclick = mainClick;
   }
